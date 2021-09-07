@@ -24,13 +24,17 @@ export const onDemonstrationCreate =
       .onCreate(async (snap, context) => {
         const demonstration = snap.data();
 
-        db.collection("users").doc(demonstration.initiatorUID).update({
+        db.collection("users").doc(demonstration.initiatorUid).update({
           demonstrations: admin.firestore.FieldValue
-              .arrayUnion({id: context.params.id, title: demonstration.title}),
+              .arrayUnion({
+                id: context.params.id,
+                title: demonstration.title,
+                youtubeThumbnailUrl: "http://img.youtube.com/vi/"+
+                  demonstration.youtube_video +"/0.jpg"}),
         });
 
         const userName = (await db.collection("users")
-            .doc(demonstration.initiatorUID).get()).get("name");
+            .doc(demonstration.initiatorUid).get()).get("name");
 
         return snap.ref.update({
           participation: 0,
@@ -39,7 +43,7 @@ export const onDemonstrationCreate =
           share: 0,
           persons: [
             {
-              uid: demonstration.initiatorUID,
+              uid: demonstration.initiatorUid,
               name: userName,
             },
           ],
@@ -47,15 +51,21 @@ export const onDemonstrationCreate =
       });
 
 export const demonstrationAction =
-  functionsJakartaRegion.https.onRequest(async (request, response) => {
-    const action = request.query.action as string;
-    const userId = request.query.userId as string;
-    const demonstrationId = request.query.demonstrationId as string;
+  functionsJakartaRegion.https.onCall(async (data, context) => {
+    const action = data.action as string;
+    const userId = context.auth?.uid as string;
+    const demonstrationId = data.demonstrationId as string;
 
     const userRef = db.collection("users").doc(userId);
+    const userData = await userRef.get();
 
-    if (!((await userRef.get()).get(action) as Array<string>)
-        .includes(demonstrationId)) {
+    if ((action != "share" &&
+    !(userData.get("participation") as Array<string>)
+        .includes(demonstrationId) &&
+    !(userData.get("upvote") as Array<string>).includes(demonstrationId) &&
+    !(userData.get("downvote") as Array<string>).includes(demonstrationId)) ||
+    ((action == "share" &&
+    !(userData.get("share") as Array<string>).includes(demonstrationId)))) {
       userRef.update({
         [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
       });
@@ -64,8 +74,16 @@ export const demonstrationAction =
         [action]: admin.firestore.FieldValue.increment(1),
       });
 
-      response.send(true);
+      return {
+        action: action,
+        uid: userId,
+        success: true,
+      };
     } else {
-      response.send(false);
+      return {
+        action: action,
+        uid: userId,
+        success: false,
+      };
     }
   });

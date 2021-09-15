@@ -41,6 +41,7 @@ export const onDemonstrationCreate =
           upvote: 0,
           downvote: 0,
           share: 0,
+          numberOfAction: 0,
           persons: [
             {
               uid: demonstration.initiatorUid,
@@ -72,6 +73,41 @@ export const demonstrationAction =
 
       db.collection("demonstrations").doc(demonstrationId).update({
         [action]: admin.firestore.FieldValue.increment(1),
+        numberOfAction: admin.firestore.FieldValue.increment(1),
+      });
+
+      return {
+        action: action,
+        uid: userId,
+        success: true,
+      };
+    } else {
+      return {
+        action: action,
+        uid: userId,
+        success: false,
+      };
+    }
+  });
+
+export const cancelDemonstrationAction =
+  functionsJakartaRegion.https.onCall(async (data, context) => {
+    const action = data.action as string;
+    const userId = context.auth?.uid as string;
+    const demonstrationId = data.demonstrationId as string;
+
+    const userRef = db.collection("users").doc(userId);
+    const userData = await userRef.get();
+
+    if (action != "share" &&
+    (userData.get(action) as Array<string>).includes(demonstrationId)) {
+      userRef.update({
+        [action]: admin.firestore.FieldValue.arrayRemove(demonstrationId),
+      });
+
+      db.collection("demonstrations").doc(demonstrationId).update({
+        [action]: admin.firestore.FieldValue.increment(-1),
+        numberOfAction: admin.firestore.FieldValue.increment(1),
       });
 
       return {

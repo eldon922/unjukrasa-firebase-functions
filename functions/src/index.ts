@@ -46,6 +46,7 @@ export const onDemonstrationCreate =
             {
               uid: demonstration.initiatorUid,
               name: userName,
+              role: "Inisiator",
             },
           ],
         });

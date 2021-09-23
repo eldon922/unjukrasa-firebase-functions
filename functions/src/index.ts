@@ -1,10 +1,17 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import algoliasearch from "algoliasearch";
 admin.initializeApp();
 
 const db = admin.firestore();
 
 const functionsJakartaRegion = functions.region("asia-southeast2");
+
+const ALGOLIA_ID = functions.config().algolia.app_id;
+const ALGOLIA_ADMIN_KEY = functions.config().algolia.api_key;
+
+const ALGOLIA_INDEX_NAME = "demonstrations";
+const client = algoliasearch(ALGOLIA_ID, ALGOLIA_ADMIN_KEY);
 
 export const onUserCreate =
   functionsJakartaRegion.firestore.document("/users/{id}")
@@ -35,6 +42,17 @@ export const onDemonstrationCreate =
 
         const userName = (await db.collection("users")
             .doc(demonstration.initiatorUid).get()).get("name");
+
+        demonstration.id = context.params.id;
+
+        const index = client.initIndex(ALGOLIA_INDEX_NAME);
+        index.saveObject({
+          objectID: context.params.id,
+          title: demonstration.title,
+          description: demonstration.description,
+          youtubeThumbnailUrl: "http://img.youtube.com/vi/"+
+            demonstration.youtube_video +"/0.jpg",
+        });
 
         return snap.ref.update({
           participation: 0,

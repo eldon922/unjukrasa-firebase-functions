@@ -30,24 +30,27 @@ export const onDemonstrationCreate =
   functionsJakartaRegion.firestore.document("/demonstrations/{id}")
       .onCreate(async (snap, context) => {
         const demonstration = snap.data();
+        demonstration.id = context.params.id;
 
         db.collection("users").doc(demonstration.initiatorUid).update({
           demonstrations: admin.firestore.FieldValue
               .arrayUnion({
-                id: context.params.id,
+                id: demonstration.id,
                 title: demonstration.title,
                 youtubeThumbnailUrl: "http://img.youtube.com/vi/"+
                   demonstration.youtube_video +"/0.jpg"}),
+          participation: admin.firestore.FieldValue
+              .arrayUnion(demonstration.id),
+          upvote: admin.firestore.FieldValue.arrayUnion(demonstration.id),
         });
 
         const userName = (await db.collection("users")
             .doc(demonstration.initiatorUid).get()).get("name");
 
-        demonstration.id = context.params.id;
-
         const index = client.initIndex(ALGOLIA_INDEX_NAME);
         index.saveObject({
-          objectID: context.params.id,
+          objectID: demonstration.id,
+          userName: userName,
           title: demonstration.title,
           description: demonstration.description,
           youtubeThumbnailUrl: "http://img.youtube.com/vi/"+
@@ -55,8 +58,8 @@ export const onDemonstrationCreate =
         });
 
         return snap.ref.update({
-          participation: 0,
-          upvote: 0,
+          participation: 1,
+          upvote: 1,
           downvote: 0,
           share: 0,
           numberOfAction: 0,
@@ -86,9 +89,16 @@ export const demonstrationAction =
     !(userData.get("downvote") as Array<string>).includes(demonstrationId)) ||
     ((action == "share" &&
     !(userData.get("share") as Array<string>).includes(demonstrationId)))) {
-      userRef.update({
-        [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
-      });
+      if (action == "participation") {
+        userRef.update({
+          [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
+          upvote: admin.firestore.FieldValue.arrayUnion(demonstrationId),
+        });
+      } else {
+        userRef.update({
+          [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
+        });
+      }
 
       db.collection("demonstrations").doc(demonstrationId).update({
         [action]: admin.firestore.FieldValue.increment(1),

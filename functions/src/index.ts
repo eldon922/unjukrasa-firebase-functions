@@ -82,41 +82,47 @@ export const demonstrationAction =
     const userRef = db.collection("users").doc(userId);
     const userData = await userRef.get();
 
-    if ((action != "share" &&
-    !(userData.get("participation") as Array<string>)
-        .includes(demonstrationId) &&
-    !(userData.get("upvote") as Array<string>).includes(demonstrationId) &&
+    let success = true;
+
+    if ((!(userData.get(action) as Array<string>).includes(demonstrationId) &&
     !(userData.get("downvote") as Array<string>).includes(demonstrationId)) ||
-    ((action == "share" &&
-    !(userData.get("share") as Array<string>).includes(demonstrationId)))) {
-      if (action == "participation") {
+    action == "share") {
+      if (action == "participation" &&
+      !(userData.get("upvote") as Array<string>).includes(demonstrationId)) {
         userRef.update({
           [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
           upvote: admin.firestore.FieldValue.arrayUnion(demonstrationId),
         });
-      } else {
+
+        db.collection("demonstrations").doc(demonstrationId).update({
+          [action]: admin.firestore.FieldValue.increment(1),
+          upvote: admin.firestore.FieldValue.increment(1),
+          numberOfAction: admin.firestore.FieldValue.increment(1),
+        });
+      } else if (action == "share" ||
+      (action == "participation" &&
+      (userData.get("upvote") as Array<string>).includes(demonstrationId)) ||
+      (!(userData.get("upvote") as Array<string>).includes(demonstrationId) &&
+      !(userData.get("participation") as Array<string>)
+          .includes(demonstrationId))) {
         userRef.update({
           [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
         });
+
+        db.collection("demonstrations").doc(demonstrationId).update({
+          [action]: admin.firestore.FieldValue.increment(1),
+          numberOfAction: admin.firestore.FieldValue.increment(1),
+        });
       }
-
-      db.collection("demonstrations").doc(demonstrationId).update({
-        [action]: admin.firestore.FieldValue.increment(1),
-        numberOfAction: admin.firestore.FieldValue.increment(1),
-      });
-
-      return {
-        action: action,
-        uid: userId,
-        success: true,
-      };
     } else {
-      return {
-        action: action,
-        uid: userId,
-        success: false,
-      };
+      success = false;
     }
+
+    return {
+      action: action,
+      uid: userId,
+      success: success,
+    };
   });
 
 export const cancelDemonstrationAction =
@@ -128,27 +134,41 @@ export const cancelDemonstrationAction =
     const userRef = db.collection("users").doc(userId);
     const userData = await userRef.get();
 
+    let success = true;
+
     if (action != "share" &&
     (userData.get(action) as Array<string>).includes(demonstrationId)) {
-      userRef.update({
-        [action]: admin.firestore.FieldValue.arrayRemove(demonstrationId),
-      });
+      if (action == "upvote" &&
+      (userData.get("participation") as Array<string>).includes(demonstrationId)
+      ) {
+        userRef.update({
+          [action]: admin.firestore.FieldValue.arrayRemove(demonstrationId),
+          participation: admin.firestore.FieldValue
+              .arrayRemove(demonstrationId),
+        });
 
-      db.collection("demonstrations").doc(demonstrationId).update({
-        [action]: admin.firestore.FieldValue.increment(-1),
-        numberOfAction: admin.firestore.FieldValue.increment(1),
-      });
+        db.collection("demonstrations").doc(demonstrationId).update({
+          [action]: admin.firestore.FieldValue.increment(-1),
+          participation: admin.firestore.FieldValue.increment(-1),
+          numberOfAction: admin.firestore.FieldValue.increment(1),
+        });
+      } else {
+        userRef.update({
+          [action]: admin.firestore.FieldValue.arrayRemove(demonstrationId),
+        });
 
-      return {
-        action: action,
-        uid: userId,
-        success: true,
-      };
+        db.collection("demonstrations").doc(demonstrationId).update({
+          [action]: admin.firestore.FieldValue.increment(-1),
+          numberOfAction: admin.firestore.FieldValue.increment(1),
+        });
+      }
     } else {
-      return {
-        action: action,
-        uid: userId,
-        success: false,
-      };
+      success = false;
     }
+
+    return {
+      action: action,
+      uid: userId,
+      success: success,
+    };
   });

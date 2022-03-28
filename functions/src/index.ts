@@ -18,7 +18,7 @@ export const onUserCreate =
       .onCreate((snap) => {
         return snap.ref.update({
           demonstrations: [],
-          participation: [],
+          participate: [],
           upvote: [],
           downvote: [],
           share: [],
@@ -39,7 +39,7 @@ export const onDemonstrationCreate =
                 title: demonstration.title,
                 youtubeThumbnailUrl: "http://img.youtube.com/vi/"+
                   demonstration.youtube_video +"/0.jpg"}),
-          participation: admin.firestore.FieldValue
+          participate: admin.firestore.FieldValue
               .arrayUnion(demonstration.id),
           upvote: admin.firestore.FieldValue.arrayUnion(demonstration.id),
         });
@@ -58,7 +58,7 @@ export const onDemonstrationCreate =
         });
 
         return snap.ref.update({
-          participation: 1,
+          participate: 1,
           upvote: 1,
           downvote: 0,
           share: 0,
@@ -87,7 +87,7 @@ export const demonstrationAction =
     if ((!(userData.get(action) as Array<string>).includes(demonstrationId) &&
     !(userData.get("downvote") as Array<string>).includes(demonstrationId)) ||
     action == "share") {
-      if (action == "participation" &&
+      if (action == "participate" &&
       !(userData.get("upvote") as Array<string>).includes(demonstrationId)) {
         userRef.update({
           [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
@@ -100,10 +100,10 @@ export const demonstrationAction =
           numberOfAction: admin.firestore.FieldValue.increment(1),
         });
       } else if (action == "share" ||
-      (action == "participation" &&
+      (action == "participate" &&
       (userData.get("upvote") as Array<string>).includes(demonstrationId)) ||
       (!(userData.get("upvote") as Array<string>).includes(demonstrationId) &&
-      !(userData.get("participation") as Array<string>)
+      !(userData.get("participate") as Array<string>)
           .includes(demonstrationId))) {
         userRef.update({
           [action]: admin.firestore.FieldValue.arrayUnion(demonstrationId),
@@ -139,17 +139,17 @@ export const cancelDemonstrationAction =
     if (action != "share" &&
     (userData.get(action) as Array<string>).includes(demonstrationId)) {
       if (action == "upvote" &&
-      (userData.get("participation") as Array<string>).includes(demonstrationId)
+      (userData.get("participate") as Array<string>).includes(demonstrationId)
       ) {
         userRef.update({
           [action]: admin.firestore.FieldValue.arrayRemove(demonstrationId),
-          participation: admin.firestore.FieldValue
+          participate: admin.firestore.FieldValue
               .arrayRemove(demonstrationId),
         });
 
         db.collection("demonstrations").doc(demonstrationId).update({
           [action]: admin.firestore.FieldValue.increment(-1),
-          participation: admin.firestore.FieldValue.increment(-1),
+          participate: admin.firestore.FieldValue.increment(-1),
           numberOfAction: admin.firestore.FieldValue.increment(1),
         });
       } else {
